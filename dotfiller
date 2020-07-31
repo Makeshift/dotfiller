@@ -1,0 +1,215 @@
+#!/bin/bash
+DOTFILLER_HOME=$HOME/.dotfiller
+OVERWRITES_FILE="${DOTFILLER_HOME}/overwrites"
+ALLKNOWNFILES_FILE="${DOTFILLER_HOME}/allknown"
+DOTFILLER_LINK_DIR_CONFIG="${DOTFILLER_HOME}/link_dir"
+
+BOLD="\\e[1m"
+C="\\033[0m"
+BLACK="\\033[1;30m"
+BLUE="\\033[1;34m"
+CYAN="\\033[1;36m"
+GREEN="\\033[0;32m"
+ORANGE="\\033[0;2;33m"
+PURPLE="\\033[1;35m"
+RED="\\033[1;31m"
+VIOLET="\\033[1;35m"
+WHITE="\\033[1;37m"
+YELLOW="\\033[1;33m"
+MAGENTA="\\033[1;31m"
+
+function _in_array() {
+    local needle="$1" item
+    local -n arrref="$2"
+    for item in "${arrref[@]}"; do
+        [[ "${item}" == "${needle}" ]] && return 0
+    done
+    return 1
+}
+
+function _shouldWeLink() {
+    file=${1}
+    # Add every file we find to the allknown file for later cleanup of symlinks we made
+    grep -qxF "${file}" "$ALLKNOWNFILES_FILE" > /dev/null 2>&1 || echo "${file}" >> "$ALLKNOWNFILES_FILE"
+    declare -a overwrites
+    if [ -f "$OVERWRITES_FILE" ]; then readarray -t overwrites < "$OVERWRITES_FILE"; fi
+    if _in_array "$file" "overwrites"; then return 0; fi
+    if [ ! -z "$overwrite_all" ]; then
+        echo "Adding $file to $OVERWRITES_FILE"
+        echo "$file" >> "$OVERWRITES_FILE"
+        return 0
+    fi
+    if [ ! -f "$file" ]; then return 0; fi
+
+    if [ "$INTERACTIVE" -gt 0 ]; then
+        read -p "Overwrite $file ([Y]es/[N]o/[A]lways for this file/always for [E]very file)? " -n 1 -r overwriteResponse
+        echo
+        if [[ "$overwriteResponse" =~ ^[Yy]$ ]]; then return 0; fi
+        if [[ "$overwriteResponse" =~ ^[Aa]$ ]]; then
+            echo "Adding $file to $OVERWRITES_FILE"
+            echo "$file" >> "$OVERWRITES_FILE"
+            return 0
+        fi
+        if [[ "$overwriteResponse" =~ ^[Ee]$ ]]; then
+            overwrite_all=1
+            echo "Adding $file to $OVERWRITES_FILE"
+            echo "$file" >> "$OVERWRITES_FILE"
+            return 0
+        fi
+    else
+        echo "Non-interactive mode & $file does not appear in $OVERWRITES_FILE, so we are not overwriting. Run \"INTERACTIVE=1;$0\" to interactively add overwrites."
+    fi
+    return 1
+}
+
+function _traverseLink() {
+    dir=${1%\/}
+    shopt -s dotglob
+    for file in "$dir"/*; do
+        fileHome="${HOME}${file#"$DROPBOX_DIR"}"
+        if _shouldWeLink "$fileHome"; then
+            echo ln -sf "$file" "$fileHome"
+        else
+            echo "Skipping $fileHome"
+        fi
+    done
+}
+
+function _cleanLinks() {
+    dir=${1:-$HOME}
+    if [ -f "$ALLKNOWNFILES_FILE" ]; then 
+        cat "$ALLKNOWNFILES_FILE" | while read -r line; do
+            if [ -h "$line" -a ! -e "$line" ]; then
+                unlink "$line"
+            fi
+        done
+    fi
+}
+
+function run_unattended() {
+    _cleanLinks
+    rm "$ALLKNOWNFILES_FILE"
+    _traverseLink "$(cat "$DOTFILLER_LINK_DIR_CONFIG")"
+}
+
+function run_interactive() {
+    _cleanLinks
+    rm "$ALLKNOWNFILES_FILE"
+    arg=${1:-"$(cat "$DOTFILLER_LINK_DIR_CONFIG")"}
+    INTERACTIVE=1 _traverseLink "$arg"
+}
+
+function dropbox_init() {
+    read -p "Enter the name of the Dropbox directory you wish to sync [homedir] : " DROPBOX_DIR
+    DROPBOX_DIR=${DROPBOX_DIR:-homedir}
+    echo
+    echo "Downloading Dropbox management script"
+    cd $HOME
+    mkdir -p $HOME/bin
+    wget -O $HOME/bin/dropbox  "https://www.dropbox.com/download?dl=packages/dropbox.py"
+    chmod +x $HOME/bin/dropbox
+    dropbox start -i
+    dropbox status
+    read -n 1 -s -r -p "Visit the link above (if any) and press any key to continue"
+    cd $HOME/Dropbox
+    dropbox exclude add * > /dev/null
+    dropbox exclude remove "$DROPBOX_DIR"
+    echo "Setting Dropbox to autostart"
+    dropbox autostart y
+    echo "Waiting for Dropbox to sync..."
+    sleep 3
+    until dropbox filestatus "$DROPBOX_DIR" | grep up to date; do
+        echo "Still waiting for Dropbox to sync..."
+        sleep 5
+    done
+
+    if [ ! -d "$DROPBOX_DIR"]; then
+        echo "Dropbox claims it's up to date, but $DROPBOX_DIR does not exist. Exiting."
+        exit 1
+    fi
+    LINK_DIR="${HOME}/Dropbox/${DROPBOX_DIR}"
+}
+
+function install() {
+    echo -e "Welcome to ${ORANGE}Dotfiller!${C}"
+    echo
+    echo -e "The ${BLUE}Dropbox${C} install type will install Dropbox and set it to sync a specific folder, then symlink to your home directory. \n\t${BOLD}Any${C} changes to these files will be sync'd to all machines with the Dropbox install type. \n\t(This is best for home setups or machines you trust.)\n\t(${YELLOW}Note:${C} The folder you wish to sync must be in the top level of your Dropbox directory."
+    #echo -e "The ${BLUE}Git${C} install type will download a Git repository and symlink files/folders in there to your home directory. \n\tThese files can be configured to sync from the upstream repository periodially, but ${BOLD}will not${C} sync local changes to Git or other machines. \n\t(This is best for machines you work on regularly, but don't want to give full access to your Dropbox to)"
+
+    PS3='Pick your installation type: '
+    #types=("Dropbox" "Git" "Quit")
+    types=("Dropbox" "Quit")
+    select type in "${types[@]}"; do
+        case $type in
+            "Dropbox")
+                echo -e "Dropbox installation type selected, beginning config..."
+                install_type=Dropbox
+                dropbox_init
+                break
+                ;;
+            # "Git")
+            #     echo -e "Git installation type selected, beginning config..."
+            #     install_type=Git
+            #     source configure_git
+            #     break
+            #     ;;
+            "Quit")
+                echo -e "Bye!"
+                exit
+                ;;
+            *) echo -e "Invalid option ${RED}${REPLY}${C}";;
+        esac
+    done
+
+    read -p "Provider config complete, should we symlink your files now? [y] : " symlink_now
+    echo
+    symlink_now=${symlink_now:-y}
+    if [[ "$symlink_now" =~ ^[Yy]$ ]]; then
+        source traverse_and_link
+        run_interactive "$LINK_DIR"
+        echo "$LINK_DIR" > "$DOTFILLER_LINK_DIR_CONFIG"
+        echo "We're finished symlinking."
+    else
+        echo -e "Okay!"
+    fi
+
+    echo -e "How should we handle new files from ${GREEN}${install_type}${C} in the future?"
+    echo
+    echo -e "${BLUE}Login${C}: This method will add a line to your ${YELLOW}~/.bashrc${C} (If it isn't already there) to create symlinks for new files when you open a new shell."
+    #echo -e "${BLUE}Detected Changes${C}: This method will add a line to your ${YELLOW}~/.bashrc${C} (If it isn't already there) that runs a daemon script to detect changes from your provider, and symlink new files found."
+    echo -e "${Blue}Manual${C}: This method will require you to run the ${YELLOW}create_links${C} script manually to add new symlinks."
+    PS3='Choose: '
+    types=("Login" "Detected Changes" "Manual")
+    select type in "${types[@]}"; do
+        case $type in
+            "Login")
+                echo -e "Adding the following line to your ${YELLOW}~/.bashrc${C}: ${GREEN}${BASHRC_CREATE_LINKS}${C}"
+                grep -qxF "${BASHRC_CREATE_LINKS}" "$HOME/.bashrc" > /dev/null 2>&1 || echo "${BASHRC_CREATE_LINKS}" >> "$HOME/.bashrc"
+                break
+                ;;
+            # "Detected Changes")
+            #     echo -e "Git installation type selected, beginning config..."
+            #     source configure_git
+            #     break
+            #     ;;
+            "Manual")
+                echo -e "Okay! Just run ${GREEN}${DOTFILLER_CREATE_LINKS_SCRIPT}${C} whenever you need to create new symlinks."
+                break
+                ;;
+            *) echo -e "Invalid option ${RED}${REPLY}${C}";;
+        esac
+    done
+
+    echo
+    echo -e "We're ${GREEN}DONE${C} "
+}
+
+function help() {
+    echo -e "Welcome to Dotfiller. You must pass an argument to use this script. I suggest ${GREEN}$0 install${C} ."
+}
+
+if [ -z $1 ]; then
+    help
+    exit 1
+fi
+$1
