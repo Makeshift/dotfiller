@@ -1,0 +1,3 @@
+#!/bin/bash
+source traverse_and_link
+run_unattended
