@@ -1,6 +1,8 @@
 # Dotfiller
 Yet another dotfile manager for Linux.
 
+**Warning**: The master branch is not considered stable. If you wish to use Dotfiller, use the latest release. If there is no release, then it's still in development.
+
 **Dotfiller can:**
 
 * Sync items in your home folder from Git or Dropbox
