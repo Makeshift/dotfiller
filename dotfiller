@@ -3,6 +3,9 @@ DOTFILLER_HOME=$HOME/.dotfiller
 OVERWRITES_FILE="${DOTFILLER_HOME}/overwrites"
 ALLKNOWNFILES_FILE="${DOTFILLER_HOME}/allknown"
 DOTFILLER_LINK_DIR_CONFIG="${DOTFILLER_HOME}/link_dir"
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+dropbox=$HOME/bin/dropbox
+alias dropbox=$dropbox
 
 BOLD="\\e[1m"
 C="\\033[0m"
@@ -30,7 +33,7 @@ function _in_array() {
 function _shouldWeLink() {
     file=${1}
     # Add every file we find to the allknown file for later cleanup of symlinks we made
-    grep -qxF "${file}" "$ALLKNOWNFILES_FILE" > /dev/null 2>&1 || echo "${file}" >> "$ALLKNOWNFILES_FILE"
+    /bin/grep -qxF "${file}" "$ALLKNOWNFILES_FILE" > /dev/null 2>&1 || echo "${file}" >> "$ALLKNOWNFILES_FILE"
     declare -a overwrites
     if [ -f "$OVERWRITES_FILE" ]; then readarray -t overwrites < "$OVERWRITES_FILE"; fi
     if _in_array "$file" "overwrites"; then return 0; fi
@@ -86,13 +89,13 @@ function _cleanLinks() {
     fi
 }
 
-function run_unattended() {
+function symlink_unattended() {
     _cleanLinks
     rm "$ALLKNOWNFILES_FILE"
     _traverseLink "$(cat "$DOTFILLER_LINK_DIR_CONFIG")"
 }
 
-function run_interactive() {
+function links() {
     _cleanLinks
     rm "$ALLKNOWNFILES_FILE"
     arg=${1:-"$(cat "$DOTFILLER_LINK_DIR_CONFIG")"}
@@ -100,31 +103,63 @@ function run_interactive() {
 }
 
 function dropbox_init() {
+    if [ -d "$HOME/.dropbox" ] || [ -d "$HOME/.dropbox-dist" ] || [ -d "$HOME/Dropbox" ]; then
+        echo -e "${RED}WARNING!${C} It looks like Dropbox may have already been set up, at least partially."
+        read -p "Have you already logged into Dropbox using this script? (y/n)? " -n 1 -r skip_dropbox_login
+    fi
+    cd $HOME
+    if [ ! -f "$dropbox" ]; then
+        echo "Downloading Dropbox management script"
+        mkdir -p $HOME/bin
+        wget -O $dropbox  "https://www.dropbox.com/download?dl=packages/dropbox.py"
+        chmod +x $dropbox
+    fi
     read -p "Enter the name of the Dropbox directory you wish to sync [homedir] : " DROPBOX_DIR
     DROPBOX_DIR=${DROPBOX_DIR:-homedir}
     echo
-    echo "Downloading Dropbox management script"
-    cd $HOME
-    mkdir -p $HOME/bin
-    wget -O $HOME/bin/dropbox  "https://www.dropbox.com/download?dl=packages/dropbox.py"
-    chmod +x $HOME/bin/dropbox
-    dropbox start -i
-    dropbox status
-    read -n 1 -s -r -p "Visit the link above (if any) and press any key to continue"
-    cd $HOME/Dropbox
-    dropbox exclude add * > /dev/null
+
+    if dropbox status | /bin/grep "Dropbox isn't running!" > /dev/null; then
+        dropbox start -i
+        echo -e "${YELLOW}Waiting for Dropbox to start...${C}"
+    fi
+    sleep 3
+    until dropbox status | /bin/grep "following\|yncing\|to date" > /dev/null; do
+        sleep 1
+    done
+    if dropbox status | /bin/grep "following" > /dev/null; then
+        echo -e "${GREEN}"
+        dropbox status
+        echo -e "${C}${ORANGE}Visit the link above and press any key to continue${C}"
+        echo -e "Waiting for Dropbox to finish login"
+    fi
+    until dropbox status | /bin/grep "yncing\|to date" > /dev/null; do
+        sleep 1
+    done
+    cd "$HOME/Dropbox"
+    # Don't mess with the users excludes
+    # TODO: Fix this crap so Dropbox excludes everything...
+    if [ -z "$skip_dropbox_login" ] || [[ ! "$skip_dropbox_login" =~ ^[Yy]$ ]]; then
+        echo -e "Excluding every Dropbox folder from syncing except for ${ORANGE}${DROPBOX_DIR}${C}"
+        # Add everything to exclude
+        for file in "$HOME/Dropbox/*"; do
+            dropbox exclude add $file
+        done
+        
+        # Delete the stuff it managed to sync in the meantime
+        rm -r *
+    fi
+    # Remove the exclusion for our symlink dir
     dropbox exclude remove "$DROPBOX_DIR"
     echo "Setting Dropbox to autostart"
     dropbox autostart y
     echo "Waiting for Dropbox to sync..."
-    sleep 3
-    until dropbox filestatus "$DROPBOX_DIR" | grep up to date; do
+    until dropbox filestatus "$DROPBOX_DIR" | /bin/grep "to date"; do
         echo "Still waiting for Dropbox to sync..."
-        sleep 5
+        sleep 1
     done
 
     if [ ! -d "$DROPBOX_DIR"]; then
-        echo "Dropbox claims it's up to date, but $DROPBOX_DIR does not exist. Exiting."
+        echo "Dropbox claims it's up to date, but $DROPBOX_DIR does not exist, so something is wrong. Exiting."
         exit 1
     fi
     LINK_DIR="${HOME}/Dropbox/${DROPBOX_DIR}"
@@ -183,8 +218,9 @@ function install() {
     select type in "${types[@]}"; do
         case $type in
             "Login")
-                echo -e "Adding the following line to your ${YELLOW}~/.bashrc${C}: ${GREEN}${BASHRC_CREATE_LINKS}${C}"
-                grep -qxF "${BASHRC_CREATE_LINKS}" "$HOME/.bashrc" > /dev/null 2>&1 || echo "${BASHRC_CREATE_LINKS}" >> "$HOME/.bashrc"
+                DOTFILLER_BASHRC_CREATE_LINKS="$0 symlink_unattended"
+                echo -e "Adding the following line to your ${YELLOW}~/.bashrc${C}: ${GREEN}${DOTFILLER_BASHRC_CREATE_LINKS}${C}"
+                /bin/grep -qxF "${BASHRC_CREATE_LINKS}" "$HOME/.bashrc" > /dev/null 2>&1 || echo "${BASHRC_CREATE_LINKS}" >> "$HOME/.bashrc"
                 break
                 ;;
             # "Detected Changes")
@@ -193,7 +229,7 @@ function install() {
             #     break
             #     ;;
             "Manual")
-                echo -e "Okay! Just run ${GREEN}${DOTFILLER_CREATE_LINKS_SCRIPT}${C} whenever you need to create new symlinks."
+                echo -e "Okay! Just run ${GREEN}${0} links${C} whenever you need to create new symlinks."
                 break
                 ;;
             *) echo -e "Invalid option ${RED}${REPLY}${C}";;
