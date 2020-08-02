@@ -21,3 +21,5 @@ I would like to be able to run a single command, be asked a few simple questions
 If the environment is considered safe (by me, the one running the command), then all changes to dotfiles on this machine will be synchronised to other machines via Dropbox, and updated into Git periodically.
 
 If the environment is not considered safe, then changes will be pulled regularly from Git, and will _not_ be pushed back upstream if changed locally.
+
+**How to use:**
