@@ -1,10 +1,19 @@
 #!/bin/bash
 DOTFILLER_HOME=$HOME/.dotfiller
+USER_REPO_STORE="${DOTFILLER_HOME}/repo"
 OVERWRITES_FILE="${DOTFILLER_HOME}/overwrites"
+OVERWRITE_FOREVER_FILE="${DOTFILLER_HOME}/overwrite_forever"
 ALLKNOWNFILES_FILE="${DOTFILLER_HOME}/allknown"
 DOTFILLER_LINK_DIR_CONFIG="${DOTFILLER_HOME}/link_dir"
+DOTFILLER_UNATTENDED_LOGS="${DOTFILLER_HOME}/unattended.log"
+DOTFILLER_DROPBOX_CONFIGURED="${DOTFILLER_HOME}/dropbox_configured"
+DOTFILLER_SYNC_CONFIGURED="${DOTFILLER_HOME}/SYNC_CONFIGURED"
+DOTFILLER_GIT_CONFIGURED="${DOTFILLER_HOME}/git_configured"
+DOTFILLER_SYNC_FROM="${DOTFILLER_HOME}/dropbox_dir"
+DOTFILLER_SYNC_TO="${DOTFILLER_HOME}/git_dir"
+DOTFILLER_SYNC_LOG="${DOTFILLER_HOME}/sync.log"
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-dropbox=$HOME/bin/dropbox
+dropbox=$DOTFILLER_HOME/bin/dropbox
 alias dropbox=$dropbox
 
 BOLD="\\e[1m"
@@ -31,9 +40,10 @@ function _in_array() {
 }
 
 function _shouldWeLink() {
-    file=${1}
+    local file=${1}
     # Add every file we find to the allknown file for later cleanup of symlinks we made
     /bin/grep -qxF "${file}" "$ALLKNOWNFILES_FILE" > /dev/null 2>&1 || echo "${file}" >> "$ALLKNOWNFILES_FILE"
+    if [ -f "$OVERWRITE_FOREVER_FILE" ]; then return 0; fi
     declare -a overwrites
     if [ -f "$OVERWRITES_FILE" ]; then readarray -t overwrites < "$OVERWRITES_FILE"; fi
     if _in_array "$file" "overwrites"; then return 0; fi
@@ -44,8 +54,8 @@ function _shouldWeLink() {
     fi
     if [ ! -f "$file" ]; then return 0; fi
 
-    if [ "$INTERACTIVE" -gt 0 ]; then
-        read -p "Overwrite $file ([Y]es/[N]o/[A]lways for this file/always for [E]very file)? " -n 1 -r overwriteResponse
+    if [[ $INTERACTIVE -gt 0 ]]; then
+        read -p "Overwrite $file ([Y]es/[N]o/[A]lways for this file/always for [E]very file this run/always for every file, even new [O]nes)? " -n 1 -r overwriteResponse
         echo
         if [[ "$overwriteResponse" =~ ^[Yy]$ ]]; then return 0; fi
         if [[ "$overwriteResponse" =~ ^[Aa]$ ]]; then
@@ -59,27 +69,37 @@ function _shouldWeLink() {
             echo "$file" >> "$OVERWRITES_FILE"
             return 0
         fi
+        if [[ "$overwriteResponse" =~ ^[Oo]$ ]]; then
+            touch "$OVERWRITE_FOREVER_FILE"
+            return 0
+        fi
     else
-        echo "Non-interactive mode & $file does not appear in $OVERWRITES_FILE, so we are not overwriting. Run \"INTERACTIVE=1;$0\" to interactively add overwrites."
+        echo "$(date)- $file does not appear in $OVERWRITES_FILE, so we are not overwriting. Run \"$SCRIPTPATH links\" to interactively add overwrites." >> DOTFILLER_UNATTENDED_LOGS
     fi
     return 1
 }
 
 function _traverseLink() {
-    dir=${1%\/}
+    local dir=${1%\/}
+    local file
+    local fileHome
     shopt -s dotglob
     for file in "$dir"/*; do
-        fileHome="${HOME}${file#"$DROPBOX_DIR"}"
-        if _shouldWeLink "$fileHome"; then
-            echo ln -sf "$file" "$fileHome"
+        fileHome="${HOME}${file#"$dir"}"
+        if ! readlink -f "$fileHome" | /bin/grep "$file" > /dev/null && _shouldWeLink "$fileHome"; then
+            # Just in case...
+            if [ -d "$fileHome" ]; then mv "$fileHome" "${fileHome}.bak"; fi
+            echo -e "Linking ${YELLOW}${file}${C} to ${YELLOW}${fileHome}${C}."
+            logini "$DOTFILLER_UNATTENDED_LOGS" ln -sf "$file" "$fileHome"
         else
-            echo "Skipping $fileHome"
+            if [[ $INTERACTIVE -gt 0 ]]; then echo "Skipping $fileHome"; fi
         fi
     done
 }
 
 function _cleanLinks() {
-    dir=${1:-$HOME}
+    local dir=${1:-$HOME}
+    local line
     if [ -f "$ALLKNOWNFILES_FILE" ]; then 
         cat "$ALLKNOWNFILES_FILE" | while read -r line; do
             if [ -h "$line" -a ! -e "$line" ]; then
@@ -91,36 +111,163 @@ function _cleanLinks() {
 
 function symlink_unattended() {
     _cleanLinks
-    rm "$ALLKNOWNFILES_FILE"
-    _traverseLink "$(cat "$DOTFILLER_LINK_DIR_CONFIG")"
+    rm "$ALLKNOWNFILES_FILE" 2> /dev/null
+    arg=${1:-"$(cat "$DOTFILLER_LINK_DIR_CONFIG")"}
+    _traverseLink "$arg"
 }
 
 function links() {
-    _cleanLinks
-    rm "$ALLKNOWNFILES_FILE"
-    arg=${1:-"$(cat "$DOTFILLER_LINK_DIR_CONFIG")"}
-    INTERACTIVE=1 _traverseLink "$arg"
+    INTERACTIVE=1
+    symlink_unattended "$1"
+}
+
+function provider_sync_init() {
+    rm "$DOTFILLER_SYNC_LOG" 2> /dev/null
+    echo -e "Running a sync now..."
+    sync
+    echo -e "${YELLOW}"
+    cat "$DOTFILLER_SYNC_LOG"
+    echo -e "${BLUE}\nDoes the above log look correct for a sync?${C}"
+    read -p "(y/n)? " -n 1 -r provider_sync_successful
+    echo
+    if [[ ! "$provider_sync_successful" =~ ^[Yy]$ ]]; then
+        echo -e "${RED}ERROR${C}: Sync was not successful. Exiting as we have no way to fix that :("
+    fi
+    echo
+    echo -e "How should we automate syncing?"
+    echo
+    echo -e "${BLUE}Cron${C}: This method will add a line to your ${YELLOW}crontab${C} to automatically sync and commit changes every hour, if there are any."
+    echo -e "${BLUE}Manual${C}: This method will require you to run the ${YELLOW}sync${C} command manually to update the repo."
+    PS3='Choose: '
+    #types=("Login" "Detected Changes" "Manual")
+    types=("Cron" "Manual")
+    select type in "${types[@]}"; do
+        case $type in
+            "Cron")
+                DOTFILLER_SYNC_COMMAND="0 0-23 * * * $SCRIPTPATH sync"
+                echo -e "Adding the following line to your ${YELLOW}crontab${C}: ${GREEN}${DOTFILLER_SYNC_COMMAND}${C}"
+                ! (crontab -l | grep -q "$DOTFILLER_SYNC_COMMAND") && (crontab -l; echo "$DOTFILLER_SYNC_COMMAND") | crontab -
+                break
+                ;;
+            # "Regular")
+            #     TODO
+            #     break
+            #     ;;
+            "Manual")
+                echo -e "Okay! Just run ${GREEN}${SCRIPTPATH} sync${C} whenever you need to sync from Dropbox to Git."
+                break
+                ;;
+            *) echo -e "Invalid option ${RED}${REPLY}${C}";;
+        esac
+    done
+    touch "$DOTFILLER_SYNC_CONFIGURED"
+}
+
+# log if not interesting, otherwise echo
+function logini() {
+    local log
+    local file=$1
+    shift
+    if ! log=$("$@" 2>&1); then 
+        echo "${RED}${log}${C}"
+    fi
+    echo "$(date) - ${log}" >> "$file"
+}
+
+function sync() {
+    if [ ! -f "$DOTFILLER_SYNC_CONFIGURED" ]; then
+        echo "${RED}ERROR${C}: Sync hasn't been configured yet! Run ${YELLOW}${SCRIPTPATH} install${RED}.${C}"
+        exit 1
+    fi
+    cd "$USER_REPO_STORE" > /dev/null
+    logini "$DOTFILLER_SYNC_LOG" cp -r "$(cat "$DOTFILLER_SYNC_FROM")/." "$(cat "$DOTFILLER_SYNC_TO")"
+    logini "$DOTFILLER_SYNC_LOG" git add .
+    logini "$DOTFILLER_SYNC_LOG" git commit -m "Automatic commit $(date)"
+    logini "$DOTFILLER_SYNC_LOG" git push > "$DOTFILLER_SYNC_LOG"
+    cd - > /dev/null
+}
+
+function update() {
+    if [ ! -f "$DOTFILLER_SYNC_CONFIGURED" ]; then
+        echo "${RED}ERROR${C}: Git hasn't been configured yet! Run ${YELLOW}${SCRIPTPATH} install${RED}.${C}"
+        exit 1
+    fi
+    _update
+    links
+}
+
+function _update() {
+    cd "$USER_REPO_STORE" > /dev/null
+    logini "$DOTFILLER_UNATTENDED_LOGS" git pull
+    cd - > /dev/null
+}
+
+function git_init() {
+    [[ "$(command -v git)" ]] || { echo -e "${RED}ERROR: ${C}You should probably install ${YELLOW}git${C} first." 1>&2 ; exit 1; }
+    read -p "Enter the URL to your dotfile git repository (This will be passed directly to git): " USER_GIT_REPO
+    echo
+    if ! git clone "$USER_GIT_REPO" "$USER_REPO_STORE"; then
+        echo -e "${RED}ERROR${C}: Git didn't seem to like that input."
+        exit 1
+    fi
+    touch $DOTFILLER_GIT_CONFIGURED
+    LINK_DIR="$USER_REPO_STORE"
+    echo "$LINK_DIR" > "$DOTFILLER_SYNC_TO"
+}
+
+function git_provider_install() {
+    echo -e "How should we update this ${GREEN}git${C} repo?"
+    echo
+    echo -e "${BLUE}Login${C}: This method will add a line to your ${YELLOW}~/.bashrc${C} (If it isn't already there) to automatically pull the repo on login."
+    #echo -e "${BLUE}Regular${C}: This method will add a crontab to regularly check for new updates to the repo."
+    echo -e "${Blue}Manual${C}: This method will require you to run the ${YELLOW}update${C} command manually to update the repo."
+    PS3='Choose: '
+    #types=("Login" "Detected Changes" "Manual")
+    types=("Login" "Manual")
+    select type in "${types[@]}"; do
+        case $type in
+            "Login")
+                DOTFILLER_BASHRC_UPDATE_GIT="$SCRIPTPATH update"
+                echo -e "Adding the following line to your ${YELLOW}~/.bashrc${C}: ${GREEN}${DOTFILLER_BASHRC_UPDATE_GIT}${C}"
+                /bin/grep "${DOTFILLER_BASHRC_UPDATE_GIT}" "$HOME/.bashrc" > /dev/null || echo "${DOTFILLER_BASHRC_UPDATE_GIT}" >> "$HOME/.bashrc"
+                break
+                ;;
+            # "Regular")
+            #     TODO
+            #     break
+            #     ;;
+            "Manual")
+                echo -e "Okay! Just run ${GREEN}${SCRIPTPATH} update${C} whenever you need to update the repo."
+                break
+                ;;
+            *) echo -e "Invalid option ${RED}${REPLY}${C}";;
+        esac
+    done
+
+    echo -e "${GREEN}Git setup complete.${C}"
+    echo "$LINK_DIR" > "$DOTFILLER_LINK_DIR_CONFIG"
 }
 
 function dropbox_init() {
     if [ -d "$HOME/.dropbox" ] || [ -d "$HOME/.dropbox-dist" ] || [ -d "$HOME/Dropbox" ]; then
         echo -e "${RED}WARNING!${C} It looks like Dropbox may have already been set up, at least partially."
-        read -p "Have you already logged into Dropbox using this script? (y/n)? " -n 1 -r skip_dropbox_login
+        read -p "Have you already logged into Dropbox? If yes, we won't set up exclusions. (y/n)? " -n 1 -r skip_dropbox_login
+        echo
     fi
     cd $HOME
     if [ ! -f "$dropbox" ]; then
-        echo "Downloading Dropbox management script"
-        mkdir -p $HOME/bin
-        wget -O $dropbox  "https://www.dropbox.com/download?dl=packages/dropbox.py"
+        echo -e "${YELLOW}Downloading Dropbox management script${C}"
+        curl -s --create-dirs -o "$dropbox" "https://www.dropbox.com/download?dl=packages/dropbox.py"
         chmod +x $dropbox
     fi
     read -p "Enter the name of the Dropbox directory you wish to sync [homedir] : " DROPBOX_DIR
     DROPBOX_DIR=${DROPBOX_DIR:-homedir}
     echo
 
-    if dropbox status | /bin/grep "Dropbox isn't running!" > /dev/null; then
-        dropbox start -i
-        echo -e "${YELLOW}Waiting for Dropbox to start...${C}"
+    if dropbox status | /bin/grep "Dropbox isn't" > /dev/null; then
+    echo -e "${YELLOW}Starting Dropbox...${C}"
+        yes y | dropbox start -i > /dev/null
+        echo -e "${YELLOW}Waiting for Dropbox startup to finish...${C}"
     fi
     sleep 3
     until dropbox status | /bin/grep "following\|yncing\|to date" > /dev/null; do
@@ -129,65 +276,130 @@ function dropbox_init() {
     if dropbox status | /bin/grep "following" > /dev/null; then
         echo -e "${GREEN}"
         dropbox status
-        echo -e "${C}${ORANGE}Visit the link above and press any key to continue${C}"
-        echo -e "Waiting for Dropbox to finish login"
+        echo -e "${YELLOW}Waiting for Dropbox to finish login${C}"
     fi
     until dropbox status | /bin/grep "yncing\|to date" > /dev/null; do
         sleep 1
     done
     cd "$HOME/Dropbox"
-    # Don't mess with the users excludes
-    # TODO: Fix this crap so Dropbox excludes everything...
-    if [ -z "$skip_dropbox_login" ] || [[ ! "$skip_dropbox_login" =~ ^[Yy]$ ]]; then
-        echo -e "Excluding every Dropbox folder from syncing except for ${ORANGE}${DROPBOX_DIR}${C}"
+    # Don't mess with the users excludes if they're already set up
+    if [ -z "$skip_dropbox_login" ] || [[ "$skip_dropbox_login" =~ ^[Nn]$ ]]; then
+        echo -e "${YELLOW}Excluding every Dropbox folder from syncing except for ${ORANGE}${DROPBOX_DIR}${C} ${BLUE}(This may take a few minutes depending on your connection speed and the number of files in your Dropbox)${YELLOW}...${C}"
         # Add everything to exclude
-        for file in "$HOME/Dropbox/*"; do
-            dropbox exclude add $file
+        local IFS=$'\n'
+        until dropbox status | /bin/grep "to date" > /dev/null && ! find "$HOME/Dropbox/" -mindepth 1 -not -path "*/\.*" | read; do
+            for file in $(ls -1 "$HOME/Dropbox/"); do
+                dropbox exclude add "$file" > /dev/null
+            done
+            sleep 1
         done
-        
-        # Delete the stuff it managed to sync in the meantime
-        rm -r *
+        # Remove the exclusion for our symlink dir
+        dropbox exclude remove "$DROPBOX_DIR" > /dev/null
     fi
-    # Remove the exclusion for our symlink dir
-    dropbox exclude remove "$DROPBOX_DIR"
-    echo "Setting Dropbox to autostart"
+    
+    echo -e "${YELLOW}Setting Dropbox to autostart${C}"
     dropbox autostart y
-    echo "Waiting for Dropbox to sync..."
-    until dropbox filestatus "$DROPBOX_DIR" | /bin/grep "to date"; do
-        echo "Still waiting for Dropbox to sync..."
+    echo -e "${YELLOW}Waiting for Dropbox to sync...${C}"
+    until dropbox filestatus "$DROPBOX_DIR" | /bin/grep "to date" > /dev/null; do
         sleep 1
     done
 
-    if [ ! -d "$DROPBOX_DIR"]; then
-        echo "Dropbox claims it's up to date, but $DROPBOX_DIR does not exist, so something is wrong. Exiting."
+    if [ ! -d "$DROPBOX_DIR" ]; then
+        echo "${RED}Dropbox claims it's up to date, but ${ORANGE}${DROPBOX_DIR}${RED} does not exist, so something is wrong. Exiting."
         exit 1
     fi
+    echo -e "${GREEN}Dropbox setup complete.${C}"
+    touch $DOTFILLER_DROPBOX_CONFIGURED
     LINK_DIR="${HOME}/Dropbox/${DROPBOX_DIR}"
+    echo "$LINK_DIR" > "$DOTFILLER_SYNC_FROM"
+}
+
+function dropbox_provider_install() {
+    echo "$LINK_DIR" > "$DOTFILLER_LINK_DIR_CONFIG"
+}
+
+function _provider_installed() {
+    read -p "Provider config complete, should we symlink your files now? [y] : " symlink_now
+    echo
+    symlink_now=${symlink_now:-y}
+    if [[ "$symlink_now" =~ ^[Yy]$ ]]; then
+        links "$LINK_DIR"
+        echo "We're finished symlinking."
+    else
+        echo "Okay!"
+    fi
+    echo -e "How should we handle new files from ${GREEN}${install_type}${C} in the future?"
+    echo
+    echo -e "${BLUE}Login${C}: This method will add a line to your ${YELLOW}~/.bashrc${C} (If it isn't already there) to create symlinks for new files when you open a new shell."
+    #echo -e "${BLUE}Detected Changes${C}: This method will add a line to your ${YELLOW}~/.bashrc${C} (If it isn't already there) that runs a daemon script to detect changes from your provider, and symlink new files found."
+    echo -e "${BLUE}Manual${C}: This method will require you to run the ${YELLOW}create_links${C} script manually to add new symlinks."
+    PS3='Choose: '
+    #types=("Login" "Detected Changes" "Manual")
+    types=("Login" "Manual")
+    select type in "${types[@]}"; do
+        case $type in
+            "Login")
+                DOTFILLER_BASHRC_CREATE_LINKS="$SCRIPTPATH symlink_unattended"
+                echo -e "Adding the following line to your ${YELLOW}~/.bashrc${C}: ${GREEN}${DOTFILLER_BASHRC_CREATE_LINKS}${C}"
+                /bin/grep "${BASHRC_CREATE_LINKS}" "$HOME/.bashrc" > /dev/null || echo "${BASHRC_CREATE_LINKS}" >> "$HOME/.bashrc"
+                break
+                ;;
+            # "Detected Changes")
+            #     TODO
+            #     break
+            #     ;;
+            "Manual")
+                echo -e "Okay! Just run ${GREEN}${SCRIPTPATH} links${C} whenever you need to create new symlinks."
+                break
+                ;;
+            *) echo -e "Invalid option ${RED}${REPLY}${C}";;
+        esac
+    done
 }
 
 function install() {
     echo -e "Welcome to ${ORANGE}Dotfiller!${C}"
     echo
     echo -e "The ${BLUE}Dropbox${C} install type will install Dropbox and set it to sync a specific folder, then symlink to your home directory. \n\t${BOLD}Any${C} changes to these files will be sync'd to all machines with the Dropbox install type. \n\t(This is best for home setups or machines you trust.)\n\t(${YELLOW}Note:${C} The folder you wish to sync must be in the top level of your Dropbox directory."
-    #echo -e "The ${BLUE}Git${C} install type will download a Git repository and symlink files/folders in there to your home directory. \n\tThese files can be configured to sync from the upstream repository periodially, but ${BOLD}will not${C} sync local changes to Git or other machines. \n\t(This is best for machines you work on regularly, but don't want to give full access to your Dropbox to)"
+    echo -e "The ${BLUE}Git${C} install type will download a Git repository and symlink files/folders in there to your home directory. \n\tThese files can be configured to sync from the upstream repository periodially, but ${BOLD}will not${C} sync local changes to Git or other machines. \n\t(This is best for machines you work on regularly, but don't want to give full access to your Dropbox to)"
+    echo -e "The ${BLUE}Sync${C} install type will set up syncing from Dropbox to Git. This method should generally only be installed on one machine, or you'll end up with merge problems all over the place.\n\tThis is safe to run whether you have set up Git/Dropbox or not. You will be walked through the process if you haven't."
+
+    mkdir -p "$DOTFILLER_HOME"
 
     PS3='Pick your installation type: '
-    #types=("Dropbox" "Git" "Quit")
-    types=("Dropbox" "Quit")
+    types=("Dropbox" "Git" "Sync" "Quit")
     select type in "${types[@]}"; do
         case $type in
             "Dropbox")
                 echo -e "Dropbox installation type selected, beginning config..."
                 install_type=Dropbox
                 dropbox_init
+                dropbox_provider_install
+                _provider_installed
                 break
                 ;;
-            # "Git")
-            #     echo -e "Git installation type selected, beginning config..."
-            #     install_type=Git
-            #     source configure_git
-            #     break
-            #     ;;
+            "Git")
+                echo -e "Git installation type selected, beginning config..."
+                install_type=Git
+                git_init
+                git_provider_install
+                _provider_installed
+                break
+                ;;
+            "Sync")
+                echo -e "Sync installation type selected, beginning config..."
+                install_type=Sync
+                if [ ! -f "$DOTFILLER_DROPBOX_CONFIGURED" ]; then
+                    echo -e "${BLUE}Dropbox${C} has not yet been configured, starting config now..."
+                    dropbox_init
+                fi
+                if [ ! -f "$DOTFILLER_GIT_CONFIGURED" ]; then
+                    echo -e "${BLUE}Git${C} has not yet been configured, starting config now..."
+                    git_init
+                fi
+                provider_sync_init
+                break
+                ;;
             "Quit")
                 echo -e "Bye!"
                 exit
@@ -195,57 +407,27 @@ function install() {
             *) echo -e "Invalid option ${RED}${REPLY}${C}";;
         esac
     done
-
-    read -p "Provider config complete, should we symlink your files now? [y] : " symlink_now
     echo
-    symlink_now=${symlink_now:-y}
-    if [[ "$symlink_now" =~ ^[Yy]$ ]]; then
-        source traverse_and_link
-        run_interactive "$LINK_DIR"
-        echo "$LINK_DIR" > "$DOTFILLER_LINK_DIR_CONFIG"
-        echo "We're finished symlinking."
-    else
-        echo -e "Okay!"
-    fi
-
-    echo -e "How should we handle new files from ${GREEN}${install_type}${C} in the future?"
-    echo
-    echo -e "${BLUE}Login${C}: This method will add a line to your ${YELLOW}~/.bashrc${C} (If it isn't already there) to create symlinks for new files when you open a new shell."
-    #echo -e "${BLUE}Detected Changes${C}: This method will add a line to your ${YELLOW}~/.bashrc${C} (If it isn't already there) that runs a daemon script to detect changes from your provider, and symlink new files found."
-    echo -e "${Blue}Manual${C}: This method will require you to run the ${YELLOW}create_links${C} script manually to add new symlinks."
-    PS3='Choose: '
-    types=("Login" "Detected Changes" "Manual")
-    select type in "${types[@]}"; do
-        case $type in
-            "Login")
-                DOTFILLER_BASHRC_CREATE_LINKS="$0 symlink_unattended"
-                echo -e "Adding the following line to your ${YELLOW}~/.bashrc${C}: ${GREEN}${DOTFILLER_BASHRC_CREATE_LINKS}${C}"
-                /bin/grep -qxF "${BASHRC_CREATE_LINKS}" "$HOME/.bashrc" > /dev/null 2>&1 || echo "${BASHRC_CREATE_LINKS}" >> "$HOME/.bashrc"
-                break
-                ;;
-            # "Detected Changes")
-            #     echo -e "Git installation type selected, beginning config..."
-            #     source configure_git
-            #     break
-            #     ;;
-            "Manual")
-                echo -e "Okay! Just run ${GREEN}${0} links${C} whenever you need to create new symlinks."
-                break
-                ;;
-            *) echo -e "Invalid option ${RED}${REPLY}${C}";;
-        esac
-    done
-
-    echo
-    echo -e "We're ${GREEN}DONE${C} "
+    echo -e "All ${GREEN}done${C}."
 }
 
 function help() {
-    echo -e "Welcome to Dotfiller. You must pass an argument to use this script. I suggest ${GREEN}$0 install${C} ."
+    echo -e "Welcome to Dotfiller, yet another Dotfile manager. You must pass an argument to use this script. I suggest ${GREEN}$0 install${C} .
+Available arguments:
+       ${YELLOW}install${C} - Will guide you through installing Dotfiller with a provider
+       ${YELLOW}   link${C} - Will link files from your provider to your home directory, asking questions if it needs to overwrite anything
+${YELLOW}symlink_unattended - Above, but won't ask you questions
+            ${YELLOW}update - Pulls from a remote Git provider
+              ${YELLOW}sync - Copies from Dropbox to Git, then commits any changes.
+
+Visit ${ORANGE}https://github.com/Makeshift/Dotfiller${C} for updates and issues.
+    "
 }
 
-if [ -z $1 ]; then
+if [ -z $1 ] || [[ $1 == "h*" ]] || [[ $1 == "-h*" ]] || [[ $1 == "--h*" ]]; then
     help
     exit 1
 fi
-$1
+command=$1
+shift
+$command $@
