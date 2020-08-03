@@ -405,6 +405,7 @@ function _provider_installed() {
         echo "$CREATE_LINKS_WHEN (Set by env)"
         "create_links_$CREATE_LINKS_WHEN"
     fi
+    add_to_path
 }
 
 function create_links_login() {
@@ -416,6 +417,18 @@ function create_links_login() {
 
 function create_links_manual() {
     echo -e "Okay! Just run ${GREEN}${SCRIPTPATH} links${C} whenever you need to create new symlinks."
+}
+
+function add_to_path() {
+    echo -e "Adding Dotfiller to your path will add line to your ${YELLOW}~/.profile${C}."
+    _question "ADD_TO_PATH" "Add Dotfiller to your path?" 1
+    DOTFILLER_BASHRC_PATH_LINE="PATH=$PATH:$(basename "$SCRIPTPATH")"
+    if [[ "$SYMLINK_NOW" =~ ^[Yy]$ ]]; then
+        echo -e "Adding the following line to your ${YELLOW}~/.profile${C}: ${GREEN}${DOTFILLER_BASHRC_PATH_LINE}${C}"
+        /bin/grep "${DOTFILLER_BASHRC_PATH_LINE}" "$HOME/.profile" > /dev/null || echo -e "\n${DOTFILLER_BASHRC_PATH_LINE}\n" >> "$HOME/.profile"
+    else
+        echo "Okay!"
+    fi
 }
 
 function install() {
