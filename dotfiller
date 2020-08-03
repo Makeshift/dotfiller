@@ -95,7 +95,7 @@ function _traverseLink() {
     shopt -s dotglob
     for file in "$dir"/*; do
         fileHome="${HOME}${file#"$dir"}"
-        if ! readlink -f "$fileHome" | /bin/grep "$file" > /dev/null && _shouldWeLink "$fileHome" && [[ ! "$file" =~ *.git ]]; then
+        if ! readlink -f "$fileHome" | /bin/grep "$file" > /dev/null && _shouldWeLink "$fileHome" && ! "$file" =~ ./*\.git; then
             # Just in case...
             if [ -d "$fileHome" ]; then mv "$fileHome" "${fileHome}.bak"; fi
             echo -e "Linking ${YELLOW}${file}${C} to ${YELLOW}${fileHome}${C}."
