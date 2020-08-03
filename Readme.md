@@ -5,6 +5,10 @@ Yet another dotfile manager for Linux.
 
 While Dotfiller has been tested, I wouldn't exactly consider it production-grade code, so use it at your own risk. I'm not responsible for things being deleted in your home directory or logs being broken.
 
+Here's an example of Dotfiller as I would run it on a machine I don't trust, to download my dotfiles from Git:
+
+![downloading my dotfiles using dotfiller in a single command](https://i.imgur.com/dUQotdM.gif "downloading my dotfiles using dotfiller in a single command")
+
 ## Dotfiller can
 
 * Sync items in your home folder from Git or Dropbox
