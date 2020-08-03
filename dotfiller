@@ -300,12 +300,13 @@ function dropbox_init() {
     cd $HOME
     if [ ! -f "$dropbox" ]; then
         echo -e "${YELLOW}Downloading Dropbox management script${C}"
-        curl -s --create-dirs -o "$dropbox" "https://www.dropbox.com/download?dl=packages/dropbox.py"
+        curl -L -s --create-dirs -o "$dropbox" "https://www.dropbox.com/download?dl=packages/dropbox.py"
         chmod +x $dropbox
     fi
     _question "DROPBOX_DIR" "Enter the name of the Dropbox directory you wish to sync [homedir] : "
     DROPBOX_DIR=${DROPBOX_DIR:-homedir}
     echo
+    echo "${YELLOW}Checking Dropbox status...${C}"
 
     if $dropbox status | /bin/grep "Dropbox isn't" > /dev/null; then
     echo -e "${YELLOW}Starting Dropbox...${C}"
