@@ -13,7 +13,11 @@ DOTFILLER_GIT_CONFIGURED="${DOTFILLER_HOME}/git_configured"
 DOTFILLER_SYNC_FROM="${DOTFILLER_HOME}/dropbox_dir"
 DOTFILLER_SYNC_TO="${DOTFILLER_HOME}/git_dir"
 DOTFILLER_SYNC_LOG="${DOTFILLER_HOME}/sync.log"
+# In case the user has different usernames on different machines, take advantage of ~ for the script path
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/$(basename "$0")"
+SCRIPTPATH=${SCRIPTPATH#"$HOME"}
+SCRIPTPATH="~${SCRIPTPATH}"
+
 dropbox=$DOTFILLER_HOME/bin/dropbox
 
 BOLD="\\e[1m"
@@ -404,6 +408,7 @@ function _provider_installed() {
 
 function create_links_login() {
     DOTFILLER_BASHRC_CREATE_LINKS="$SCRIPTPATH symlink_unattended"
+
     echo -e "Adding the following line to your ${YELLOW}~/.bashrc${C}: ${GREEN}${DOTFILLER_BASHRC_CREATE_LINKS}${C}"
     /bin/grep "${DOTFILLER_BASHRC_CREATE_LINKS}" "$HOME/.bashrc" > /dev/null || echo -e "\n${DOTFILLER_BASHRC_CREATE_LINKS}\n" >> "$HOME/.bashrc"
 }
