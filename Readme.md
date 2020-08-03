@@ -48,12 +48,12 @@ Here's a list of the available environment variables to skip questions. If a var
 | `SYMLINK_NOW`             | `y` or unset                                                  |          | After setting up a provider, `y` will cause Dotfiller to immediately set up symlinks from your home dir to the provider path.                                                                 |
 | `CREATE_LINKS_WHEN`       | `login` or `manual`                                           |          | `login` adds a line to your `~/.bashrc` to automatically check and fix/create symlinks from your home dir to the provider path                                                                |
 | `INSTALL_TYPE`            | `dropbox`, `git` or `sync`                                    |          |                                                                                                                                                                                               |
-To make this even easier, I have an `index.html` (crucially with the `add_header Content-Type text/plain;` Nginx directive) at `https://dotfiles.makeshift.ninja` containing:
+To make this even easier, I have an `index.html` at `https://dotfiles.makeshift.ninja` containing:
 ```
-source <(curl -s "https://raw.githubusercontent.com/Makeshift/dotfiller/master/bootstrap.sh" )
+curl -s "https://raw.githubusercontent.com/Makeshift/dotfiller/master/bootstrap.sh" | bash -s
 ```
 
-This allows me to type just `$(curl dotfiles.makeshift.ninja)` to get started.
+This allows me to type just `curl dotfiles.makeshift.ninja | bash` to get started.
 
 ### Running Dotfiller directly
 

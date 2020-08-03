@@ -11,8 +11,8 @@ curl -s https://api.github.com/repos/Makeshift/dotfiller/releases/latest \
 | tr -d ,\" \
 | xargs -I % curl -L -s -o "$HOME/.dotfiller/bin/dotfiller.zip" %
 
-#unzip -o -j "$HOME/.dotfiller/bin/dotfiller.zip" -d "$HOME/.dotfiller/bin/" > /dev/null
-rm "$HOME/.dotfiller/bin/dotfiller.zip" "$HOME/.dotfiller/bin/Readme.md"
+unzip -o -j "$HOME/.dotfiller/bin/dotfiller.zip" -d "$HOME/.dotfiller/bin/" > /dev/null
+rm "$HOME/.dotfiller/bin/dotfiller.zip" "$HOME/.dotfiller/bin/Readme.md" 2> /dev/null
 
 # There are likely cleaner ways to do this, but it works!
 OVERWRITE_ALL=1 \
