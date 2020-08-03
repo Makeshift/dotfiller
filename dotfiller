@@ -95,7 +95,7 @@ function _traverseLink() {
     shopt -s dotglob
     for file in "$dir"/*; do
         fileHome="${HOME}${file#"$dir"}"
-        if ! readlink -f "$fileHome" | /bin/grep "$file" > /dev/null && _shouldWeLink "$fileHome" && [[ "$file" =~ "*.git" ]]; then
+        if ! readlink -f "$fileHome" | /bin/grep "$file" > /dev/null && _shouldWeLink "$fileHome" && [[ ! "$file" =~ "*.git" ]]; then
             # Just in case...
             if [ -d "$fileHome" ]; then mv "$fileHome" "${fileHome}.bak"; fi
             echo -e "Linking ${YELLOW}${file}${C} to ${YELLOW}${fileHome}${C}."
@@ -224,7 +224,7 @@ function _update() {
 }
 
 function add_github_known_hosts() {
-    if [ ! -n "$(/bin/grep "^github.com " ~/.ssh/known_hosts)" ]; then
+    if [ ! -n "$(/bin/grep "^github.com " ~/.ssh/known_hosts > /dev/null)" ]; then
         echo -e "In order to pull from SSH non-interactively, we need to add Github to the ssh list of known hosts."
         echo -e "This is the key we'll be adding: "
         ssh-keyscan github.com 2>/dev/null
