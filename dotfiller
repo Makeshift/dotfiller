@@ -435,7 +435,7 @@ function create_links_manual() {
 function add_to_path() {
     echo -e "Adding Dotfiller to your path will add line to your ${YELLOW}~/.profile${C}."
     _question "ADD_TO_PATH" "Add Dotfiller to your path?" 1
-    DOTFILLER_BASHRC_PATH_LINE="PATH=\$PATH:$(dirname "$SCRIPTPATHFULL")"
+    DOTFILLER_BASHRC_PATH_LINE="export PATH=\$PATH:$(dirname "$SCRIPTPATHFULL")"
     if [[ "$SYMLINK_NOW" =~ ^[Yy]$ ]]; then
         echo -e "Adding the following line to your ${YELLOW}~/.profile${C}: ${GREEN}${DOTFILLER_BASHRC_PATH_LINE}${C}"
         /bin/grep "${DOTFILLER_BASHRC_PATH_LINE}" "$HOME/.profile" > /dev/null || echo -e "\n${DOTFILLER_BASHRC_PATH_LINE}\n" >> "$HOME/.profile"
@@ -518,12 +518,11 @@ function install_type_sync() {
 function help() {
     echo -e "Welcome to Dotfiller, yet another Dotfile manager. You must pass an argument to use this script. I suggest ${GREEN}$0 install${C} .
 Available arguments:
-        ${YELLOW}install${C} - Will guide you through installing Dotfiller with a provider
-        ${YELLOW}   link${C} - Will link files from your provider to your home directory, asking questions if it needs to overwrite anything
- ${YELLOW}symlink_unattended - Above, but won't ask you questions, outputs to log ~/.dotfiller/unattended.log
-             ${YELLOW}update - Pulls from a remote Git provider
-               ${YELLOW}sync - Copies from Dropbox to Git, then commits any changes.
-${YELLOW}_provider_installed - Runs the 'Set up automatic symlinking' prompt
+            ${YELLOW}install${C} - Will guide you through installing Dotfiller with a provider
+            ${YELLOW}  links${C} - Will link files from your provider to your home directory, asking questions if it needs to overwrite anything
+ ${YELLOW}symlink_unattended${C} - Above, but won't ask you questions, outputs to log ~/.dotfiller/unattended.log
+             ${YELLOW}update${C} - Pulls from a remote Git provider
+               ${YELLOW}sync${C} - Copies from Dropbox to Git, then commits any changes.
 
 Visit ${ORANGE}https://github.com/Makeshift/Dotfiller${C} for updates and issues.
     "

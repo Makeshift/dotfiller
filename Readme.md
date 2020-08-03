@@ -50,12 +50,14 @@ Here's a list of the available environment variables to skip questions. If a var
 | `INSTALL_TYPE`            | `dropbox`, `git` or `sync`                                    |          |                                                                                                                                                                                               |
 | `ADD_TO_PATH`             | `y` or unset                                                  |          | `y` will add Dotfiller to your path via a line in `~/.profile`                                                                                                                                |
 | `ADD_GITHUB_TO_KNOWN_HOSTS`| `y` or unset                                                 | Git/Sync | `y` will add Github to your known hosts so it doesn't fail to pull/push non-interactively                                                                                                     |
+
 To make this even easier, I have an `index.html` at `https://dotfiles.makeshift.ninja` containing:
+
 ```
 curl -s "https://raw.githubusercontent.com/Makeshift/dotfiller/master/bootstrap.sh" | bash -s
 ```
 
-This allows me to type just `curl dotfiles.makeshift.ninja | bash` to get started.
+This allows me to type just `curl -L dotfiles.makeshift.ninja | bash` to get started.
 
 ### Running Dotfiller directly
 
