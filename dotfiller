@@ -422,7 +422,7 @@ function create_links_manual() {
 function add_to_path() {
     echo -e "Adding Dotfiller to your path will add line to your ${YELLOW}~/.profile${C}."
     _question "ADD_TO_PATH" "Add Dotfiller to your path?" 1
-    DOTFILLER_BASHRC_PATH_LINE="PATH=\$PATH:$(basename "$SCRIPTPATH")"
+    DOTFILLER_BASHRC_PATH_LINE="PATH=\$PATH:$(dirname "$SCRIPTPATH")"
     if [[ "$SYMLINK_NOW" =~ ^[Yy]$ ]]; then
         echo -e "Adding the following line to your ${YELLOW}~/.profile${C}: ${GREEN}${DOTFILLER_BASHRC_PATH_LINE}${C}"
         /bin/grep "${DOTFILLER_BASHRC_PATH_LINE}" "$HOME/.profile" > /dev/null || echo -e "\n${DOTFILLER_BASHRC_PATH_LINE}\n" >> "$HOME/.profile"
