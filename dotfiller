@@ -218,6 +218,7 @@ function update() {
 
 function _update() {
     cd "$USER_REPO_STORE" > /dev/null
+    logini "$DOTFILLER_UNATTENDED_LOGS" git restore .
     logini "$DOTFILLER_UNATTENDED_LOGS" git pull
     cd - > /dev/null
 }
@@ -238,7 +239,7 @@ function git_init() {
 function git_provider_install() {
     echo -e "How should we update this ${GREEN}git${C} repo?"
     echo
-    echo -e "${BLUE}Login${C}: This method will add a line to your ${YELLOW}~/.bashrc${C} (If it isn't already there) to automatically pull the repo on login."
+    echo -e "${BLUE}Login${C}: This method will add a line to your ${YELLOW}~/.profile${C} (If it isn't already there) to automatically pull the repo on login."
     #echo -e "${BLUE}Regular${C}: This method will add a crontab to regularly check for new updates to the repo."
     echo -e "${Blue}Manual${C}: This method will require you to run the ${YELLOW}update${C} command manually to update the repo."
     if [ -z "$GIT_PROVIDER_UPDATE" ]; then
@@ -269,9 +270,9 @@ function git_provider_install() {
 }
 
 function git_update_login() {
-    DOTFILLER_BASHRC_UPDATE_GIT="$SCRIPTPATH update &"
-    echo -e "Adding the following line to your ${YELLOW}~/.bashrc${C}: ${GREEN}${DOTFILLER_BASHRC_UPDATE_GIT}${C}"
-    /bin/grep "${DOTFILLER_BASHRC_UPDATE_GIT}" "$HOME/.bashrc" > /dev/null || echo "${DOTFILLER_BASHRC_UPDATE_GIT}" >> "$HOME/.bashrc"
+    DOTFILLER_BASHRC_UPDATE_GIT="($SCRIPTPATH update & wait)"
+    echo -e "Adding the following line to your ${YELLOW}~/.profile${C}: ${GREEN}${DOTFILLER_BASHRC_UPDATE_GIT}${C}"
+    /bin/grep "${DOTFILLER_BASHRC_UPDATE_GIT}" "$HOME/.profile" > /dev/null || echo "${DOTFILLER_BASHRC_UPDATE_GIT}" >> "$HOME/.profile"
 }
 
 function git_update_manual() {
@@ -378,8 +379,8 @@ function _provider_installed() {
     fi
     echo -e "How should we handle new files from ${GREEN}${install_type}${C} in the future?"
     echo
-    echo -e "${BLUE}Login${C}: This method will add a line to your ${YELLOW}~/.bashrc${C} (If it isn't already there) to create symlinks for new files when you open a new shell."
-    #echo -e "${BLUE}Detected Changes${C}: This method will add a line to your ${YELLOW}~/.bashrc${C} (If it isn't already there) that runs a daemon script to detect changes from your provider, and symlink new files found."
+    echo -e "${BLUE}Login${C}: This method will add a line to your ${YELLOW}~/.profile${C} (If it isn't already there) to create symlinks for new files when you open a new shell."
+    #echo -e "${BLUE}Detected Changes${C}: This method will add a line to your ${YELLOW}~/.profile${C} (If it isn't already there) that runs a daemon script to detect changes from your provider, and symlink new files found."
     echo -e "${BLUE}Manual${C}: This method will require you to run the ${YELLOW}create_links${C} script manually to add new symlinks."
     if [ -z "$CREATE_LINKS_WHEN" ]; then
         PS3='Choose: '
@@ -407,10 +408,10 @@ function _provider_installed() {
 }
 
 function create_links_login() {
-    DOTFILLER_BASHRC_CREATE_LINKS="$SCRIPTPATH symlink_unattended &"
+    DOTFILLER_BASHRC_CREATE_LINKS="($SCRIPTPATH symlink_unattended & wait)"
 
-    echo -e "Adding the following line to your ${YELLOW}~/.bashrc${C}: ${GREEN}${DOTFILLER_BASHRC_CREATE_LINKS}${C}"
-    /bin/grep "${DOTFILLER_BASHRC_CREATE_LINKS}" "$HOME/.bashrc" > /dev/null || echo -e "\n${DOTFILLER_BASHRC_CREATE_LINKS}\n" >> "$HOME/.bashrc"
+    echo -e "Adding the following line to your ${YELLOW}~/.profile${C}: ${GREEN}${DOTFILLER_BASHRC_CREATE_LINKS}${C}"
+    /bin/grep "${DOTFILLER_BASHRC_CREATE_LINKS}" "$HOME/.profile" > /dev/null || echo -e "\n${DOTFILLER_BASHRC_CREATE_LINKS}\n" >> "$HOME/.profile"
 }
 
 function create_links_manual() {
