@@ -30,7 +30,7 @@ There is an additional install type called "Sync" that will regularly sync chang
 
 ### Using a bootstrap script
 
-The bootstrap script will skip a lot of questions and allow you to get up and running quicker. The one in this repo is specific to my setup, so you may wish to create your own.
+The bootstrap script will skip a lot of questions and allow you to get up and running quicker. The one in this repo is specific to my setup, so you may wish to create your own. You could make one in a gist, or fork the repo.
 
 * Download a bootstrap script (Either the one in this repo or your own customised one)
 * Run it
