@@ -3,23 +3,53 @@ Yet another dotfile manager for Linux.
 
 **Warning**: The master branch is not considered stable. If you wish to use Dotfiller, use the latest release. If there is no release, then it's still in development.
 
-**Dotfiller can:**
+While Dotfiller has been tested, I wouldn't exactly consider it production-grade code, so use it at your own risk. I'm not responsible for things being deleted in your home directory or logs being broken.
+
+## Dotfiller can
 
 * Sync items in your home folder from Git or Dropbox
 * Sync items between Git and Dropbox
+* Be automated into a one-line command to set up your dotfiles and keep them up to date
 
-**Why:** 
+## Why
 
 When I'm on my machines at home, I want all my changes to my dotfiles to be sync'd and immediately reflected on all of my hosts.
 
 When I'm on a machine that isn't mine (or is shared with others), I still want my dotfiles and I want them to be up to date - but I don't want that machine to have unfiltered access to my Dropbox.
 
-**What I am trying to achieve:**
+## How to use
 
-I would like to be able to run a single command, be asked a few simple questions about the environment I'm on, and have my dotfiles available.
+### Providers
 
-If the environment is considered safe (by me, the one running the command), then all changes to dotfiles on this machine will be synchronised to other machines via Dropbox, and updated into Git periodically.
+There are only two providers currently supported: Git and Dropbox.
+There is an additional install type called "Sync" that will regularly sync changes from Dropbox to Git.
 
-If the environment is not considered safe, then changes will be pulled regularly from Git, and will _not_ be pushed back upstream if changed locally.
+### Using a bootstrap script
 
-**How to use:**
+The bootstrap script will skip a lot of questions and allow you to get up and running quicker. The one in this repo is specific to my setup, so you may wish to create your own.
+
+* Download a bootstrap script (Either the one in this repo or your own customised one)
+* Run it
+* If you're using the one in this repo, it will ask you if you wish to use Dropbox or Git
+* If Dropbox, you will be asked to visit a link to complete login
+* Done
+
+Here's a list of the available environment variables to skip questions. If a variable is unset, it will prompt you for the answer. See `bootstrap.sh` for an example:
+
+| Env Var                   | Possible Values                                               | Provider | Notes                                                                                                                                                                                         |
+|---------------------------|---------------------------------------------------------------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `OVERWRITE_ALL`           | `1` or unset                                                  |          | `1` will overwrite all files in the home directory that conflict with the ones from your provider, rather than prompting the user for each file                                               |
+| `OVERWRITE_ALL_FOREVER`   | `1` or unset                                                  |          | `1` will overwrite all files in the home directory that conflict with the ones from your provider, plus any new files that appear in later runs, rather than prompting the user for each file |
+| `SYNC_CHOICE`             | `cron` or `manual`                                            | Sync     | `cron` adds a line to your crontab to automatically sync changes from Dropbox to Git every hour.                                                                                              |
+| `USER_GIT_REPO`           | A link to a repo containing your dotfiles                     | Git      |                                                                                                                                                                                               |
+| `GIT_PROVIDER_UPDATE`     | `login` or `manual`                                           | Git      | `login` adds a line to your `~/.bashrc` to automatically pull updates to the repo on login.                                                                                                   |
+| `SKIP_DROPBOX_EXCLUSIONS` | `y`, `n` or unset                                             | Dropbox  | If Dropbox is already installed, `y` will cause Dotfiller to not set up exclusions. `n` will set up exclusions. If unset, it will ask if it detects a Dropbox install.                        |
+| `DROPBOX_DIR`             | The name of the _top level_ directory in Dropbox to sync from | Dropbox  |                                                                                                                                                                                               |
+| `SYMLINK_NOW`             | `y` or unset                                                  |          | After setting up a provider, `y` will cause Dotfiller to immediately set up symlinks from your home dir to the provider path.                                                                 |
+| `CREATE_LINKS_WHEN`       | `login` or `manual`                                           |          | `login` adds a line to your `~/.bashrc` to automatically check and fix/create symlinks from your home dir to the provider path                                                                |
+| `INSTALL_TYPE`            | `dropbox`, `git` or `sync`                                    |          |                                                                                                                                                                                               |
+
+### Running Dotfiller directly
+
+* Download the Dotfiller script
+* Run `./dotfiller install`
