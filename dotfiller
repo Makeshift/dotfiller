@@ -269,7 +269,7 @@ function git_provider_install() {
 }
 
 function git_update_login() {
-    DOTFILLER_BASHRC_UPDATE_GIT="$SCRIPTPATH update"
+    DOTFILLER_BASHRC_UPDATE_GIT="$SCRIPTPATH update &"
     echo -e "Adding the following line to your ${YELLOW}~/.bashrc${C}: ${GREEN}${DOTFILLER_BASHRC_UPDATE_GIT}${C}"
     /bin/grep "${DOTFILLER_BASHRC_UPDATE_GIT}" "$HOME/.bashrc" > /dev/null || echo "${DOTFILLER_BASHRC_UPDATE_GIT}" >> "$HOME/.bashrc"
 }
@@ -407,7 +407,7 @@ function _provider_installed() {
 }
 
 function create_links_login() {
-    DOTFILLER_BASHRC_CREATE_LINKS="$SCRIPTPATH symlink_unattended"
+    DOTFILLER_BASHRC_CREATE_LINKS="$SCRIPTPATH symlink_unattended &"
 
     echo -e "Adding the following line to your ${YELLOW}~/.bashrc${C}: ${GREEN}${DOTFILLER_BASHRC_CREATE_LINKS}${C}"
     /bin/grep "${DOTFILLER_BASHRC_CREATE_LINKS}" "$HOME/.bashrc" > /dev/null || echo -e "\n${DOTFILLER_BASHRC_CREATE_LINKS}\n" >> "$HOME/.bashrc"
