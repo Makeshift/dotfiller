@@ -6,12 +6,12 @@
 mkdir -p "$HOME/.dotfiller/bin"
 
 curl -s https://api.github.com/repos/Makeshift/dotfiller/releases/latest \
-| /bin/grep "zipball_url" \
+| /bin/grep "tarball_url" \
 | cut -d : -f 2,3 \
 | tr -d ,\" \
 | xargs -I % curl -L -s -o "$HOME/.dotfiller/bin/dotfiller.zip" %
 
-unzip -o -j "$HOME/.dotfiller/bin/dotfiller.zip" -d "$HOME/.dotfiller/bin/" > /dev/null
+tar -xzf "$HOME/.dotfiller/bin/dotfiller.zip" --overwrite --strip-components=1 -C "$HOME/.dotfiller/bin/" > /dev/null
 rm "$HOME/.dotfiller/bin/dotfiller.zip" "$HOME/.dotfiller/bin/Readme.md" 2> /dev/null
 
 # There are likely cleaner ways to do this, but it works!
