@@ -23,4 +23,5 @@ DROPBOX_DIR=homedir \
 SYMLINK_NOW=y \
 CREATE_LINKS_WHEN=login \
 ADD_TO_PATH=y \
+ADD_GITHUB_TO_KNOWN_HOSTS=y \
 "$HOME/.dotfiller/bin/dotfiller" install

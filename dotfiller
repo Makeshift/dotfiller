@@ -218,9 +218,21 @@ function update() {
 
 function _update() {
     cd "$USER_REPO_STORE" > /dev/null
-    logini "$DOTFILLER_UNATTENDED_LOGS" git restore .
+    logini "$DOTFILLER_UNATTENDED_LOGS" git checkout -- .
     logini "$DOTFILLER_UNATTENDED_LOGS" git pull
     cd - > /dev/null
+}
+
+function add_github_known_hosts() {
+    if [ ! -n "$(/bin/grep "^github.com " ~/.ssh/known_hosts)" ]; then
+        echo -e "In order to pull from SSH non-interactively, we need to add Github to the ssh list of known hosts."
+        echo -e "This is the key we'll be adding: "
+        ssh-keyscan github.com 2>/dev/null
+        _question "ADD_GITHUB_TO_KNOWN_HOSTS" "Should we add Github to known_hosts?" 1
+        if [[ "$ADD_GITHUB_TO_KNOWN_HOSTS" =~ ^[Yy]$ ]]; then
+            ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+        fi
+    fi
 }
 
 function git_init() {
@@ -234,6 +246,7 @@ function git_init() {
     touch $DOTFILLER_GIT_CONFIGURED
     LINK_DIR="$USER_REPO_STORE"
     echo "$LINK_DIR" > "$DOTFILLER_SYNC_TO"
+    add_github_known_hosts
 }
 
 function git_provider_install() {

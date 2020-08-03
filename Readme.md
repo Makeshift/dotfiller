@@ -49,6 +49,7 @@ Here's a list of the available environment variables to skip questions. If a var
 | `CREATE_LINKS_WHEN`       | `login` or `manual`                                           |          | `login` adds a line to your `~/.profile` to automatically check and fix/create symlinks from your home dir to the provider path                                                               |
 | `INSTALL_TYPE`            | `dropbox`, `git` or `sync`                                    |          |                                                                                                                                                                                               |
 | `ADD_TO_PATH`             | `y` or unset                                                  |          | `y` will add Dotfiller to your path via a line in `~/.profile`                                                                                                                                |
+| `ADD_GITHUB_TO_KNOWN_HOSTS`| `y` or unset                                                 | Git/Sync | `y` will add Github to your known hosts so it doesn't fail to pull/push non-interactively                                                                                                     |
 To make this even easier, I have an `index.html` at `https://dotfiles.makeshift.ninja` containing:
 ```
 curl -s "https://raw.githubusercontent.com/Makeshift/dotfiller/master/bootstrap.sh" | bash -s
