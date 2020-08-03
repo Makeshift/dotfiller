@@ -14,8 +14,8 @@ DOTFILLER_SYNC_FROM="${DOTFILLER_HOME}/dropbox_dir"
 DOTFILLER_SYNC_TO="${DOTFILLER_HOME}/git_dir"
 DOTFILLER_SYNC_LOG="${DOTFILLER_HOME}/sync.log"
 # In case the user has different usernames on different machines, take advantage of ~ for the script path
-SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/$(basename "$0")"
-SCRIPTPATH=${SCRIPTPATH#"$HOME"}
+SCRIPTPATHFULL="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/$(basename "$0")"
+SCRIPTPATH=${SCRIPTPATHFULL#"$HOME"}
 SCRIPTPATH="~${SCRIPTPATH}"
 
 dropbox=$DOTFILLER_HOME/bin/dropbox
@@ -435,7 +435,7 @@ function create_links_manual() {
 function add_to_path() {
     echo -e "Adding Dotfiller to your path will add line to your ${YELLOW}~/.profile${C}."
     _question "ADD_TO_PATH" "Add Dotfiller to your path?" 1
-    DOTFILLER_BASHRC_PATH_LINE="PATH=\$PATH:$(dirname "$SCRIPTPATH")"
+    DOTFILLER_BASHRC_PATH_LINE="PATH=\$PATH:$(dirname "$SCRIPTPATHFULL")"
     if [[ "$SYMLINK_NOW" =~ ^[Yy]$ ]]; then
         echo -e "Adding the following line to your ${YELLOW}~/.profile${C}: ${GREEN}${DOTFILLER_BASHRC_PATH_LINE}${C}"
         /bin/grep "${DOTFILLER_BASHRC_PATH_LINE}" "$HOME/.profile" > /dev/null || echo -e "\n${DOTFILLER_BASHRC_PATH_LINE}\n" >> "$HOME/.profile"
