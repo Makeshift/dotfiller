@@ -208,7 +208,7 @@ function sync() {
 }
 
 function update() {
-    if [ ! -f "$DOTFILLER_SYNC_CONFIGURED" ]; then
+    if [ ! -f "$DOTFILLER_GIT_CONFIGURED" ]; then
         echo "${RED}ERROR${C}: Git hasn't been configured yet! Run ${YELLOW}${SCRIPTPATH} install${RED}.${C}"
         exit 1
     fi
