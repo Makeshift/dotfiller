@@ -15,7 +15,6 @@ DOTFILLER_SYNC_TO="${DOTFILLER_HOME}/git_dir"
 DOTFILLER_SYNC_LOG="${DOTFILLER_HOME}/sync.log"
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/$(basename "$0")"
 dropbox=$DOTFILLER_HOME/bin/dropbox
-alias dropbox=$dropbox
 
 BOLD="\\e[1m"
 C="\\033[0m"
@@ -308,21 +307,21 @@ function dropbox_init() {
     DROPBOX_DIR=${DROPBOX_DIR:-homedir}
     echo
 
-    if dropbox status | /bin/grep "Dropbox isn't" > /dev/null; then
+    if $dropbox status | /bin/grep "Dropbox isn't" > /dev/null; then
     echo -e "${YELLOW}Starting Dropbox...${C}"
         yes y | dropbox start -i > /dev/null
         echo -e "${YELLOW}Waiting for Dropbox startup to finish...${C}"
     fi
     sleep 3
-    until dropbox status | /bin/grep "following\|yncing\|to date" > /dev/null; do
+    until $dropbox status | /bin/grep "following\|yncing\|to date" > /dev/null; do
         sleep 1
     done
-    if dropbox status | /bin/grep "following" > /dev/null; then
+    if $dropbox status | /bin/grep "following" > /dev/null; then
         echo -e "${GREEN}"
-        dropbox status
+        $dropbox status
         echo -e "${YELLOW}Waiting for Dropbox to finish login${C}"
     fi
-    until dropbox status | /bin/grep "yncing\|to date" > /dev/null; do
+    until $dropbox status | /bin/grep "yncing\|to date" > /dev/null; do
         sleep 1
     done
     cd "$HOME/Dropbox"
@@ -331,20 +330,20 @@ function dropbox_init() {
         echo -e "${YELLOW}Excluding every Dropbox folder from syncing except for ${ORANGE}${DROPBOX_DIR}${C} ${BLUE}(This may take a few minutes depending on your connection speed and the number of files in your Dropbox)${YELLOW}...${C}"
         # Add everything to exclude
         local IFS=$'\n'
-        until dropbox status | /bin/grep "to date" > /dev/null && ! find "$HOME/Dropbox/" -mindepth 1 -not -path "*/\.*" | read; do
+        until $dropbox status | /bin/grep "to date" > /dev/null && ! find "$HOME/Dropbox/" -mindepth 1 -not -path "*/\.*" | read; do
             for file in $(ls -1 "$HOME/Dropbox/"); do
-                dropbox exclude add "$file" > /dev/null
+                $dropbox exclude add "$file" > /dev/null
             done
             sleep 1
         done
         # Remove the exclusion for our symlink dir
-        dropbox exclude remove "$DROPBOX_DIR" > /dev/null
+        $dropbox exclude remove "$DROPBOX_DIR" > /dev/null
     fi
     
     echo -e "${YELLOW}Setting Dropbox to autostart${C}"
-    dropbox autostart y
+    $dropbox autostart y
     echo -e "${YELLOW}Waiting for Dropbox to sync...${C}"
-    until dropbox filestatus "$DROPBOX_DIR" | /bin/grep "to date" > /dev/null; do
+    until $dropbox filestatus "$DROPBOX_DIR" | /bin/grep "to date" > /dev/null; do
         sleep 1
     done
 
