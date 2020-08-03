@@ -12,7 +12,7 @@ DOTFILLER_GIT_CONFIGURED="${DOTFILLER_HOME}/git_configured"
 DOTFILLER_SYNC_FROM="${DOTFILLER_HOME}/dropbox_dir"
 DOTFILLER_SYNC_TO="${DOTFILLER_HOME}/git_dir"
 DOTFILLER_SYNC_LOG="${DOTFILLER_HOME}/sync.log"
-SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/${0#"./"}"
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/$(basename "$0")"
 dropbox=$DOTFILLER_HOME/bin/dropbox
 alias dropbox=$dropbox
 
