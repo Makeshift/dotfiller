@@ -1,4 +1,5 @@
 #!/bin/bash
+exec 0</dev/tty
 DOTFILLER_HOME=$HOME/.dotfiller
 USER_REPO_STORE="${DOTFILLER_HOME}/repo"
 OVERWRITES_FILE="${DOTFILLER_HOME}/overwrites"
