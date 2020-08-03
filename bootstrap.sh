@@ -22,4 +22,5 @@ GIT_PROVIDER_UPDATE=login \
 DROPBOX_DIR=homedir \
 SYMLINK_NOW=y \
 CREATE_LINKS_WHEN=login \
+ADD_TO_PATH=y \
 "$HOME/.dotfiller/bin/dotfiller" install
