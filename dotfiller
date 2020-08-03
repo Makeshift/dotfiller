@@ -310,7 +310,7 @@ function dropbox_init() {
 
     if $dropbox status | /bin/grep "Dropbox isn't" > /dev/null; then
     echo -e "${YELLOW}Starting Dropbox...${C}"
-        yes y | dropbox start -i > /dev/null
+        yes y | $dropbox start -i > /dev/null
         echo -e "${YELLOW}Waiting for Dropbox startup to finish...${C}"
     fi
     sleep 3
